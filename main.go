@@ -51,8 +51,13 @@ func main() {
 		// DSN prefix, e.g. root:@tcp(127.0.0.1:4000)/
 		// The actual dbName will be appended when opening a specific DB.
 		dsn = flag.String("dsn", "root:@tcp(127.0.0.1:4000)/", "Data Source Name prefix for MySQL/TiDB")
+
+		// testing time seconds (default: 600 seconds)
+		testingTimeSeconds = flag.Int("testing-time-seconds", 600, "testing time seconds (default: 600 seconds)")
 	)
 	flag.Parse()
+
+	var exitTime = time.Now().Add(time.Second * time.Duration(*testingTimeSeconds))
 
 	// Prepare table information (big tables, small tables, small partition tables).
 	tables := prepareTables(*bigTableNum, *rowsPerBigTable,
@@ -93,13 +98,14 @@ func main() {
 			wg.Add(1)
 			go func(conn *sql.DB, dbName string) {
 				defer wg.Done()
-				runWorker(conn, dbName, tables, *sleepAfterQueryMs)
+				runWorker(conn, dbName, tables, *sleepAfterQueryMs, exitTime)
 			}(dbConn, dbName)
 		}
 	}
 
 	// Wait for all goroutines to finish (though in this case they run indefinitely).
 	wg.Wait()
+	log.Printf("[INFO] Stop workload with %d DB(s) x %d threads\n", *dbNum, *threadsPerDB)
 }
 
 // prepareTables creates the TableInfo list based on the given parameters.
@@ -149,7 +155,7 @@ func prepareTables(bigTableNum, rowsPerBigTable int,
 }
 
 // runWorker gets one sql.Conn from the pool and continuously performs queries on that single connection.
-func runWorker(dbConn *sql.DB, dbName string, tables []TableInfo, sleepMs int) {
+func runWorker(dbConn *sql.DB, dbName string, tables []TableInfo, sleepMs int, exitTime time.Time) {
 	// Get a dedicated connection from the pool.
 	ctx := context.Background()
 	conn, err := dbConn.Conn(ctx)
@@ -172,6 +178,10 @@ func runWorker(dbConn *sql.DB, dbName string, tables []TableInfo, sleepMs int) {
 
 		// Measure query time
 		start := time.Now()
+
+		if start.After(exitTime) {
+			break
+		}
 
 		// Use QueryRowContext on the single *sql.Conn
 		row := conn.QueryRowContext(ctx, query, kVal)

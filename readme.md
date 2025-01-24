@@ -21,7 +21,8 @@ Each database contains the following tables:
        id  INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
        k   INT NOT NULL DEFAULT 0,
        c   VARCHAR(120) NOT NULL DEFAULT '',
-       pad VARCHAR(60) NOT NULL DEFAULT ''
+       pad VARCHAR(60) NOT NULL DEFAULT '',
+       KEY `k_1` (`k`)
      );
      ```
    - (Similarly for `sbtest1` ~ `sbtest67` with the same structure, each holding 10,000 rows.)
@@ -36,7 +37,8 @@ Each database contains the following tables:
        id  INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
        k   INT NOT NULL DEFAULT 0,
        c   VARCHAR(120) NOT NULL DEFAULT '',
-       pad VARCHAR(60) NOT NULL DEFAULT ''
+       pad VARCHAR(60) NOT NULL DEFAULT '',
+       KEY `k_1` (`k`)
      );
      ```
    - (Likewise for `sbtest68` ~ `sbtest401`, each holding 900 rows.)
@@ -50,10 +52,12 @@ Each database contains the following tables:
    - **Schema (example)**:
      ```sql
      CREATE TABLE sbtest402 (
-       id  INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+       id  INT NOT NULL ,
        k   INT NOT NULL DEFAULT 0,
        c   VARCHAR(120) NOT NULL DEFAULT '',
-       pad VARCHAR(60) NOT NULL DEFAULT ''
+       pad VARCHAR(60) NOT NULL DEFAULT '',
+       PRIMARY KEY (`id`,`k`) ,
+       KEY `k_1` (`k`)
      )
      PARTITION BY HASH (k)
      PARTITIONS 372;
@@ -132,3 +136,25 @@ You should have already created databases test0001 ~ test0010,
 and created and loaded data into each table according to the specs described above.
 This tool does not create the tables or load data; it only runs queries.
 
+#### generate datas by dbgen
+dbgen is a program to quickly generate random SQL dump of a table following a given set of expressions.
+
+e.g.
+```
+$ cat sbtest1.schema.sql
+
+CREATE TABLE sbtest501 (
+    id  bigint PRIMARY KEY,
+        /*{{ rownum }}*/
+    k   bigint DEFAULT '0' NOT NULL,
+        /*{{ rand.range_inclusive(-0x80000000, 0x7fffffff) }}*/
+    c   varchar(120) DEFAULT '' NOT NULL,
+        /*{{ rand.regex('([0-9]{11}-){9}[0-9]{11}') }}*/
+    pad varchar(60) DEFAULT '' NOT NULL,
+        /*{{ rand.regex('([0-9]{11}-){4}[0-9]{11}') }}*/
+    KEY `k_1` (`k`)
+);
+
+
+
+```
